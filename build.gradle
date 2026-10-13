@@ -1,0 +1,17 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.magicling'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+    mavenCentral()
+}
+
+// 核心模型保持零运行时依赖；宿主 UI 适配不在默认 sourceSet 中编译。
