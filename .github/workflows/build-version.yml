@@ -1,0 +1,74 @@
+name: Build changed numeric version
+
+on:
+  push:
+    branches: ['**']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  version:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    outputs:
+      build: ${{ steps.version.outputs.build }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Test version gate and release packaging
+        run: python -X utf8 tests/test_ci_release.py
+      - name: Compare push versions
+        id: version
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: python -X utf8 tools/ci_release.py detect
+
+  build:
+    needs: version
+    if: needs.version.outputs.build == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '18'
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.12.5'
+      - name: Install locked Python dependencies
+        run: uv sync --frozen
+      - name: Download and verify build inputs
+        run: python -X utf8 tools/ci_release.py download
+      - name: Build Agent and attach helper
+        run: ./build.ps1 -GameJar ./deps/game.jar -ByteBuddyJar ./deps/byte-buddy-1.17.7.jar
+      - name: Run isolated game, client, packaging and MCP tests
+        run: ./test.ps1 -GameJar ./deps/game.jar
+      - name: Package Windows runtime and corresponding source
+        run: python -X utf8 tools/ci_release.py package
+      - name: Upload build downloads
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: LingLens-${{ needs.version.outputs.version }}-windows
+          path: |
+            dist/LingLens-*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30

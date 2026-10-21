@@ -1,0 +1,14 @@
+out/
+output/
+dist/
+deps/*.jar
+*.cursor.json
+__pycache__/
+.venv/
+.env
+.env.*
+!.env.example
+
+# Local gameplay samples and environment-specific validation records.
+examples/live-*
+验证记录-*.md

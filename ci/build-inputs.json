@@ -1,0 +1,12 @@
+{
+  "game": {
+    "url": "https://github.com/LingASDJ/Magic_Ling_Pixel_Dungeon/releases/download/0.9.6.5/-V0.9.6.5.jar",
+    "sha256": "142314814ecbb1796294a52963df6583b33beb1b30c7d0045d926d05c0c492a6",
+    "version": "0.9.6.5",
+    "build": "2026100600"
+  },
+  "byte_buddy": {
+    "url": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.17.7/byte-buddy-1.17.7.jar",
+    "sha256": "3575dcb8a98faf943d3c1595c47a16047c4fce8a83ebbb26262f1a2f67546357"
+  }
+}

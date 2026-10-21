@@ -1,0 +1,28 @@
+game-text-bridge
+Read-only Magic Ling game observer and local stdio MCP server
+SPDX-License-Identifier: GPL-3.0-or-later
+
+Except for third-party material with its own notices, this project's source
+code, scripts, documentation and examples are licensed under the GNU General
+Public License as published by the Free Software Foundation, either version
+3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE. See LICENSE for the full terms.
+
+This project was primarily developed using AI, including its code,
+documentation and tests. AI generation and passing tests do not establish
+completeness, correctness, reliability, security or fitness for any use.
+Review the code, back up saves and test in an isolated environment before
+using it with valuable data. A read-only design does not eliminate the risk
+of crashes, unintended side effects or data loss.
+
+This is an unofficial third-party project. It is not an official release,
+endorsement or warranty from the game authors, dependency authors or AI
+providers. Third-party code and assets retain their own licenses and
+attribution notices; see THIRD_PARTY_NOTICES.md.
+
+The risk disclosure above does not add restrictions to the GPL license.
+Warranty exclusions and liability limitations apply only to the extent
+permitted by applicable law, as described in LICENSE.

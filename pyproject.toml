@@ -1,0 +1,11 @@
+[project]
+name = "magic-ling-text-mcp"
+version = "0.9.6.5"
+description = "Read-only Magic Ling game observer and local stdio MCP server"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+requires-python = ">=3.10,<3.15"
+dependencies = ["mcp>=1.20,<2"]
+
+[tool.uv]
+package = false
