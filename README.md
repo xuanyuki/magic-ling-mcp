@@ -1,54 +1,75 @@
-# 万象之杖独立插件
+# 万象之杖外置图鉴 Agent
 
-这是针对 `Magic Ling Pixel Dungeon 0.9.6.5` 的独立插件工程草案。它只在 `magic-ling-plugin` 目录维护；工作区中的原始 JAR、APK 以及两个解包目录保持只读，不作为构建输出目录。
+本项目为 `Magic Ling Pixel Dungeon 0.9.6.5` 的桌面版提供一个外置 Java Agent。可以在启动时用 `-javaagent` 加载，也可以在游戏运行后用 JDK Attach API 注入。Agent 拦截万象之杖的物品详情窗口并添加“击杀图鉴”按钮。游戏 JAR 不会被改写，也不重打包或重签名。
 
-插件目标：在查看 `万象之杖` 时打开一个图鉴窗口，完整列出怪物，并分别标记“本杖已击杀”和“本杖未击杀”。窗口只读取法杖已有的 `killedTypes` 数据和游戏已有的 `Bestiary` 数据，不改变伤害、成长、充能或击杀判定。
+它会在游戏进程内存中改动窗口行为；“不改游戏包”不等同于“运行时完全不注入”。当前已实现 PC Agent。Android APK 没有 Java Agent 启动入口，但本 APK 静态分析显示 `debuggable=true`，因此可评估通过 ADB `am attach-agent` 加载 Android 原生 JVMTI Agent；这条 Android 实现尚未开发和设备验证。
 
-## 当前边界
+## PC 使用
 
-0.9.6.5 的公开源码没有发现外置 mod loader、`ServiceLoader` 扫描或插件 JAR 自动发现入口。桌面端的 release 构建还会把运行时依赖合并进单一 fat JAR，Android 则把 `core` 编译进 APK。因此，把本工程单独编译成一个 JAR 后，现成游戏不会自动加载它。
+1. 确认游戏 JAR 位于本工程上一级目录，文件名为 `魔绫地牢-V0.9.6.5.jar`。
+2. 安装能运行该游戏的 JDK 和 Python 3；本项目使用 JDK 18 验证。Agent 源码的编译目标为 Java 11，构建时仍需使用能读取原游戏类文件的 JDK。首次构建需联网下载 Byte Buddy。
+3. 在 PowerShell 运行：
 
-本工程采用“独立模块 + 明确宿主接入层”设计：
+   ```powershell
+   .\magic-ling-plugin\build-agent.ps1
+   .\magic-ling-plugin\test-agent.ps1
+   ```
 
-- `api` 是不依赖游戏 UI 的数据模型，可以单独测试和演进。
-- `host` 通过反射读取法杖的私有 `killedTypes`，并通过宿主适配器提供百科条目；这样核心逻辑不需要复制解包代码。
-- 仅需在源码构建中增加一个很小的入口，把法杖详情菜单的按钮/长按动作接到窗口。窗口实现可以复用 `WndJournal` 的 `ScrollingGridPane` 和 `WndJournalItem`。
-- PC 端若坚持不重建游戏，可以另做 Java Agent/字节码注入版；该路线对版本和启动参数敏感，且不能覆盖 Android，不作为第一版。
+4. 双击 `magic-ling-plugin\run-with-agent.bat` 启动，查看万象之杖详情时点击“击杀图鉴”。
 
-## 构建
-
-需要 JDK 11 或更高版本。核心模块没有第三方依赖。当前工作区没有提交 Gradle wrapper，可用项目自己的 Gradle 安装运行 `test`；也可以用下面的零依赖命令验证模型：
+如果游戏已经运行，可在同一 Windows 用户和兼容的 JDK 权限下用 Attach API 注入：
 
 ```powershell
-$out = "out/classes"
-New-Item -ItemType Directory -Force $out | Out-Null
-$files = Get-ChildItem src/main/java,src/test/java -Recurse -Filter *.java
-javac -encoding UTF-8 -source 11 -target 11 -d $out $files.FullName
-java -ea -cp $out com.magicling.myriad.api.MyriadCodexModelSelfTest
+.\magic-ling-plugin\attach-agent.ps1 -ProcessId 12345
 ```
 
-仓库没有把上游源码复制进来，也不会把生成物写入解包目录。实际宿主接入时，使用与游戏完全相同的 `0.9.6.5 / 2026100600` 源码构建，并把本工程作为独立 Gradle 子项目或源码依赖加入；发布包仍输出到单独的 `dist/`。
+将 `12345` 换成游戏 Java 进程 PID。注入成功后重新打开万象之杖详情。若游戏使用不同 Java 运行时、禁用了 Attach，或权限不同，附加可能失败；此时用上面的外置启动器启动。
 
-## 数据口径
+也可以直接用命令行启动：
 
-- `killedTypes` 是每一把法杖实例自己的集合，按敌人运行时类名去重，随物品存档。
-- `Bestiary` 的 `seen`/`encounterCount` 是全局百科记录，跨局且包含其他武器击杀；它只负责提供完整条目、名称和图标信息。
-- 插件的“已击杀”标记只看 `killedTypes`，不会把全局百科击杀误算成本杖击杀。
-- 如果存档里出现百科未收录的类名，模型会保留一个“未映射条目”，避免静默丢失数据。
+```powershell
+java -javaagent:".\magic-ling-plugin\dist\myriad-codex-agent-0.1.0-SNAPSHOT.jar" -jar ".\魔绫地牢-V0.9.6.5.jar"
+```
 
-## 版本锁定
+Agent JAR 和依赖放在 `magic-ling-plugin` 工程中；启动时读取原游戏 JAR。无需覆盖或修改原包。请用游戏原本支持的 Java 运行时启动。
 
-当前适配目标：
+## 图鉴数据
 
-- 游戏版本：`0.9.6.5`
-- 构建标识：`2026100600`
-- 法杖类：`com.shatteredpixel.shatteredpixeldungeon.items.weapon.melee.spdtomlpd.StaffofMyriadThings`
-- 关键字段：`killedTypes`
+- 该武器实例的 `killedTypes` 决定“本杖已击杀/未击杀”；同一物种按类名去重。
+- 游戏 `Bestiary` 提供完整怪物条目、百科发现状态和分类。全局百科击杀数不会被误算成这把杖的击杀。
+- 未在当前百科列表中映射的法杖存档记录会显示为“未映射”，不静默丢失。
+- 未发现且未被这把杖击杀的怪物继续按原图鉴习惯显示为 `???`。
 
-如果上游改名、混淆字段或调整 `Bestiary`，宿主适配器应先失败并显示兼容性提示，不应悄悄把列表当成空列表。
+## 当前验证范围
 
-## 许可与发布
+`build-agent.ps1` 会编译外置 Agent 并产出 `dist/myriad-codex-agent-0.1.0-SNAPSHOT.jar`。`test-agent.ps1` 检查 Agent 能否在独立 JVM 中拦截匹配的详情窗口构造器，并检查它能否转换本地原游戏 JAR 里的 `WndUseItem` 类；`test-attach.ps1` 用临时 Java 进程验证外部 Attach 和重新转换。这两项不启动游戏或更改存档。
 
-公开仓库标注 GPL-3.0。发布可分发构建前，应保留相应许可证和版权声明，并向原作者确认该版本的 mod/再分发政策。这个工程目前只包含新写的插件代码和适配文档，不包含上游游戏源码或原包。
+`test-runtime-ui.ps1` 会在隐藏 OpenGL 窗口中运行原游戏的 `GameScene`、`WndUseItem` 和图鉴窗口。它在输出目录中创建独立测试角色、配置和临时存档，通过代码调用按钮事件并保存真实渲染截图；不会操作桌面鼠标键盘。横屏与竖屏分别运行：
 
+```powershell
+.\magic-ling-plugin\test-runtime-ui.ps1
+.\magic-ling-plugin\test-runtime-ui.ps1 -Orientation portrait
+.\magic-ling-plugin\test-runtime-ui.ps1 -Scenario combat
+.\magic-ling-plugin\test-runtime-ui.ps1 -Scenario combat -Orientation portrait
+.\magic-ling-plugin\test-runtime-ui.ps1 -Scenario evidence
+```
 
+`evidence` 场景按顺序截取同一把已装备法杖的装备栏、首次击杀前后原始数据、新增图鉴弹窗和已击杀怪物详情；同时保存前后武器描述及序列化数据。击杀由原游戏战斗代码产生。
+
+2026-10-15 已在宿主机隐藏进程中通过横屏、竖屏的图鉴和战斗测试。237 个怪物图鉴条目及额外未映射记录完整显示；十二条图鉴击杀记录突破原描述列表的十项显示上限，物品按钮、条目详情、滚动末尾和未发现条目遮罩可用。读取及开窗前后的法杖、角色、活动 Actor、全局图鉴及游戏随机数生成器状态一致。
+
+战斗场景通过原游戏 `HeroAction.Attack`、攻击动画和 Actor 调度器生成击杀记录：小鼠首次击杀计数、重复同种去重、豺狼新增种类、图鉴未收录的 Snake 保留为未映射条目、原始法杖序列化往返均通过；再次开窗显示最新记录。二十轮开窗、查看详情、滚动及关闭后，检查到的角色、法杖、Actor 集合、图鉴和随机数状态保持一致。测试只在独立临时角色中设置装备、力量和相邻怪物，未直接写入这些战斗击杀记录；仍未覆盖完整自然游玩或长时间运行。
+
+2026-11-02 重新通过构建、Agent、动态附加、模型、横竖屏图鉴及战斗回归，并验证含空格路径和无效 Agent 的拒绝行为。具体范围见 [提交前检查记录](docs/检查记录-2026-11-02.md)。
+
+修复了图标构造错误、大型图标越界及预览消耗游戏随机数的问题。原游戏读档会打印缺少 `boss_types` 的警告，但击杀集合往返成功；未改动原游戏来消除此警告。
+
+虚拟机 VMware Tools 执行通道异常，未获得虚拟机通过结果；用户已改为本机后台测试，并要求清理测试镜像。测试虚拟机、快照、测试 ISO 及临时副本已清理，原有系统安装 ISO 保留。测试记录及各组截图路径见 `docs/测试记录-2026-10-15.md`。
+
+Agent 锁定 `0.9.6.5 / 2026100600`。其他版本、字段改名、窗口改版或 JVM 兼容差异可能导致入口失效。源码和外置产物在工程内维护，原始 JAR/APK 与解包目录保持不动。
+
+Android 没有对应的 `-javaagent` 启动参数。Android 14 的系统 shell 提供 `am attach-agent`，可向 `debuggable` 应用加载原生 JVMTI `.so`；本 APK 的清单静态分析显示 `debuggable=true`，因此可能在不改 APK 的情况下通过 USB 调试注入，但需要按目标 ABI 编译 Android 原生 Agent，并实现 ART/JVMTI 到游戏 UI 的桥接。本项目尚未实现或在设备上验证这条路线；若设备/系统不允许 shell attach，才需要另评估 root 注入框架或源码构建。
+
+## 上游许可
+
+上游公开仓库标注 GPL-3.0。发布可分发版本前请核对适用许可证与原作者对外置修改的政策。当前工程没有包含上游游戏源码。

@@ -6,6 +6,7 @@ import java.util.Objects;
 public final class MonsterDefinition {
     private final String className;
     private final String displayName;
+    private final String description;
     private final String category;
     private final boolean seenInBestiary;
     private final int globalEncounterCount;
@@ -16,10 +17,21 @@ public final class MonsterDefinition {
             String category,
             boolean seenInBestiary,
             int globalEncounterCount) {
+        this(className, displayName, "", category, seenInBestiary, globalEncounterCount);
+    }
+
+    public MonsterDefinition(
+            String className,
+            String displayName,
+            String description,
+            String category,
+            boolean seenInBestiary,
+            int globalEncounterCount) {
         this.className = requireText(className, "className");
         this.displayName = displayName == null || displayName.trim().isEmpty()
                 ? simpleName(className)
                 : displayName;
+        this.description = description == null ? "" : description;
         this.category = category == null || category.trim().isEmpty()
                 ? "未分类"
                 : category;
@@ -33,6 +45,10 @@ public final class MonsterDefinition {
 
     public String displayName() {
         return displayName;
+    }
+
+    public String description() {
+        return description;
     }
 
     public String category() {

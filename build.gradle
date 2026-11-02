@@ -14,4 +14,51 @@ repositories {
     mavenCentral()
 }
 
-// 核心模型保持零运行时依赖；宿主 UI 适配不在默认 sourceSet 中编译。
+sourceSets {
+    agent {
+        java.srcDirs = ['src/agent/java', 'src/host/java']
+        compileClasspath += sourceSets.main.output
+        if (providers.gradleProperty('gameJar').isPresent()) {
+            compileClasspath += files(providers.gradleProperty('gameJar').get())
+        }
+    }
+}
+
+dependencies {
+    agentImplementation 'net.bytebuddy:byte-buddy:1.17.7'
+}
+
+tasks.register('agentJar', Jar) {
+    dependsOn tasks.named('agentClasses')
+    archiveBaseName = 'myriad-codex-agent'
+    archiveVersion = project.version
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from sourceSets.main.output
+    from sourceSets.agent.output
+    from {
+        configurations.agentRuntimeClasspath
+                .findAll { it.isFile() && it.name.startsWith('byte-buddy-') }
+                .collect { zipTree(it) }
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA', 'META-INF/MANIFEST.MF'
+    manifest {
+        attributes(
+                'Premain-Class': 'com.magicling.myriad.agent.MyriadAgent',
+                'Agent-Class': 'com.magicling.myriad.agent.MyriadAgent',
+                'Can-Redefine-Classes': 'false',
+                'Can-Retransform-Classes': 'true'
+        )
+    }
+}
+
+tasks.named('compileAgentJava') {
+    doFirst {
+        if (!providers.gradleProperty('gameJar').isPresent()) {
+            throw new GradleException('Pass -PgameJar=<path to the unchanged desktop game JAR>')
+        }
+        File target = file(providers.gradleProperty('gameJar').get())
+        if (!target.isFile()) {
+            throw new GradleException("Game JAR not found: ${target}")
+        }
+    }
+}
